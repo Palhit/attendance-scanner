@@ -2,41 +2,64 @@
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Camera Test</title>
+<script src="https://unpkg.com/html5-qrcode"></script>
+<title>Attendance Scanner</title>
 </head>
 
 <body>
 
-<h2>Camera Test</h2>
+<h2>Attendance Scanner</h2>
 
-<button onclick="testCamera()">Start Camera</button>
+<div id="reader" style="width:300px;"></div>
 
-<video id="video" autoplay playsinline width="300"></video>
+<h3 id="result">Ready to Scan</h3>
 
 <script>
 
-async function testCamera() {
+const API =
+"https://script.google.com/macros/s/AKfycbwLyHobkWtJJvgM4ybRw7kzYKcHf_v--xxc9iMecYSVITrVMgUDxjPUcELExuD0LRmNSQ/exec";
 
-try {
+let lastScan = "";
 
-const stream = await navigator.mediaDevices.getUserMedia({
-video: {
-facingMode: "environment"
+function onScanSuccess(decodedText) {
+
+  if (decodedText === lastScan) return;
+
+  lastScan = decodedText;
+
+  document.getElementById("result").innerHTML =
+  "Processing " + decodedText + "...";
+
+  fetch(API + "?emp=" + encodeURIComponent(decodedText))
+  .then(response => response.text())
+  .then(data => {
+
+      document.getElementById("result").innerHTML = data;
+
+      setTimeout(() => {
+        lastScan = "";
+      }, 3000);
+
+  })
+  .catch(error => {
+
+      document.getElementById("result").innerHTML =
+      "Error: " + error;
+
+  });
+
 }
-});
 
-document.getElementById("video").srcObject = stream;
-
-alert("Camera Started");
-
+const html5QrcodeScanner =
+new Html5QrcodeScanner(
+"reader",
+{
+fps:10,
+qrbox:250
 }
-catch(err) {
+);
 
-alert(err.name + " : " + err.message);
-
-}
-
-}
+html5QrcodeScanner.render(onScanSuccess);
 
 </script>
 
