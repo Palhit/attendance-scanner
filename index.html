@@ -1,67 +1,10 @@
-<!DOCTYPE html>
-<html>
-<head>
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<script src="https://unpkg.com/html5-qrcode"></script>
-<title>Attendance Scanner</title>
-</head>
+const html5QrCode = new Html5Qrcode("reader");
 
-<body>
-
-<h2>Attendance Scanner</h2>
-
-<div id="reader" style="width:300px;"></div>
-
-<h3 id="result">Ready to Scan</h3>
-
-<script>
-
-const API =
-"https://script.google.com/macros/s/AKfycbwLyHobkWtJJvgM4ybRw7kzYKcHf_v--xxc9iMecYSVITrVMgUDxjPUcELExuD0LRmNSQ/exec";
-
-let lastScan = "";
-
-function onScanSuccess(decodedText) {
-
-  if (decodedText === lastScan) return;
-
-  lastScan = decodedText;
-
-  document.getElementById("result").innerHTML =
-  "Processing " + decodedText + "...";
-
-  fetch(API + "?emp=" + encodeURIComponent(decodedText))
-  .then(response => response.text())
-  .then(data => {
-
-      document.getElementById("result").innerHTML = data;
-
-      setTimeout(() => {
-        lastScan = "";
-      }, 3000);
-
-  })
-  .catch(error => {
-
-      document.getElementById("result").innerHTML =
-      "Error: " + error;
-
-  });
-
-}
-
-const html5QrcodeScanner =
-new Html5QrcodeScanner(
-"reader",
-{
-fps:10,
-qrbox:250
-}
+html5QrCode.start(
+  { facingMode: "environment" },
+  {
+    fps: 10,
+    qrbox: 250
+  },
+  onScanSuccess
 );
-
-html5QrcodeScanner.render(onScanSuccess);
-
-</script>
-
-</body>
-</html>
