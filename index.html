@@ -1,10 +1,14 @@
-const html5QrCode = new Html5Qrcode("reader");
+Html5Qrcode.getCameras().then(devices => {
 
-html5QrCode.start(
-  { facingMode: { exact: "environment" } },
-  {
-    fps: 10,
-    qrbox: 250
-  },
-  onScanSuccess
-);
+  const cameraId = devices[1].id;
+
+  html5QrCode.start(
+    cameraId,
+    {
+      fps: 10,
+      qrbox: 250
+    },
+    onScanSuccess
+  );
+
+});
