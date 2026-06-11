@@ -1,7 +1,7 @@
 const html5QrCode = new Html5Qrcode("reader");
 
 html5QrCode.start(
-  { facingMode: "environment" },
+  { facingMode: { exact: "environment" } },
   {
     fps: 10,
     qrbox: 250
