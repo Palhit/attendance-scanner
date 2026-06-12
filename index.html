@@ -1,32 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>QR Attendance Scanner</title>
+
+  <script src="https://unpkg.com/html5-qrcode"></script>
+
+  <style>
+    body {
+      font-family: Arial;
+      text-align: center;
+      margin-top: 30px;
+    }
+
+    #reader {
+      width: 300px;
+      margin: auto;
+    }
+
+    button {
+      padding: 10px 20px;
+      font-size: 16px;
+      margin-bottom: 20px;
+    }
+  </style>
+</head>
+
 <body>
 
-<button onclick="startScanner()">Start Scanner</button>
-<div id="reader"></div>
+  <h2>QR Attendance Scanner</h2>
 
-<script src="https://unpkg.com/html5-qrcode"></script>
+  <button onclick="startScanner()">Start Scanner</button>
 
-<script>
-let html5QrCode = new Html5Qrcode("reader");  <!-- YAHAN -->
+  <div id="reader"></div>
 
-function onScanSuccess(decodedText) {
-  alert(decodedText);
-}
+  <script>
+    let html5QrCode = new Html5Qrcode("reader");
 
-function startScanner() {
-  Html5Qrcode.getCameras().then(devices => {
+    function onScanSuccess(decodedText) {
+      alert("Scanned: " + decodedText);
 
-    const cameraId =
-      devices.find(d => d.label.toLowerCase().includes("back"))?.id
-      || devices[0].id;
+      // Optional: stop after scan
+      // html5QrCode.stop();
+    }
 
-    html5QrCode.start(
-      cameraId,
-      { fps: 10, qrbox: 250 },
-      onScanSuccess
-    );
+    function startScanner() {
+      Html5Qrcode.getCameras().then(devices => {
 
-  });
-}
-</script>
+        if (!devices || devices.length === 0) {
+          alert("No camera found");
+          return;
+        }
+
+        const cameraId =
+          devices.find(d => d.label.toLowerCase().includes("back"))?.id
+          || devices[0].id;
+
+        html5QrCode.start(
+          cameraId,
+          {
+            fps: 10,
+            qrbox: 250
+          },
+          onScanSuccess
+        ).catch(err => {
+          alert("Camera error: " + err);
+          console.log(err);
+        });
+
+      }).catch(err => {
+        alert("Camera access failed: " + err);
+        console.log(err);
+      });
+    }
+  </script>
 
 </body>
+</html>
