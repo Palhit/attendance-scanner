@@ -1,47 +1,10 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Attendance Scanner</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Scanner Fix</title>
 
-<!-- STABLE CDN -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.10/html5-qrcode.min.js"></script>
-
-<style>
-body{
-  font-family: Arial;
-  text-align:center;
-  background:#f4f4f4;
-}
-
-#reader{
-  width:300px;
-  margin:auto;
-  margin-top:20px;
-  display:none;
-}
-
-#result{
-  margin:20px auto;
-  font-size:20px;
-  font-weight:bold;
-  padding:15px;
-  border-radius:10px;
-  background:white;
-  width:80%;
-  min-height:60px;
-}
-
-button{
-  padding:12px 20px;
-  font-size:18px;
-  border:none;
-  border-radius:8px;
-  cursor:pointer;
-  margin-top:10px;
-}
-</style>
 </head>
 
 <body>
@@ -50,53 +13,58 @@ button{
 
 <div id="reader"></div>
 
-<div id="result">Ready to Scan</div>
+<div id="result">Loading scanner...</div>
 
 <button onclick="startScanner()">Start Scanner</button>
+
+<!-- 🔥 IMPORTANT: SCRIPT AT BOTTOM (NOT HEAD) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.10/html5-qrcode.min.js"></script>
 
 <script>
 
 let scanner;
-let isProcessing = false;
+let isProcessing=false;
 
 function show(msg){
-  document.getElementById("result").innerHTML = msg;
+  document.getElementById("result").innerHTML=msg;
 }
 
-// 🔴 safety check (IMPORTANT)
-window.onload = function(){
+// 🔴 CHECK IF LOADED
+window.onload=function(){
+
   if(typeof Html5Qrcode === "undefined"){
-    alert("Library load nahi hui. Internet ya CDN issue hai.");
+    show("❌ Library Not Loaded (CDN blocked)");
+    return;
   }
+
+  show("Ready to Scan");
 }
 
 async function startScanner(){
 
   try{
 
-    document.getElementById("reader").style.display = "block";
-
     if(typeof Html5Qrcode === "undefined"){
-      show("❌ Library Not Loaded");
+      show("❌ Html5Qrcode not loaded");
       return;
     }
 
     if(!scanner){
-      scanner = new Html5Qrcode("reader");
+      scanner=new Html5Qrcode("reader");
     }
 
-    const devices = await Html5Qrcode.getCameras();
+    const devices=await Html5Qrcode.getCameras();
 
-    if(!devices || devices.length === 0){
+    if(!devices || devices.length===0){
       show("❌ No Camera Found");
       return;
     }
 
-    const cameraId = devices[0].id;
+    const cameraId=devices[0].id;
 
     await scanner.start(
       cameraId,
-      { fps:10, qrbox:250 },
+      {fps:10, qrbox:250},
       onScanSuccess
     );
 
@@ -104,36 +72,27 @@ async function startScanner(){
 
   }catch(err){
     console.log(err);
-    show("❌ Camera Error: " + err.message);
+    show("❌ Error: "+err.message);
   }
 }
 
-function onScanSuccess(decodedText){
+function onScanSuccess(text){
 
   if(isProcessing) return;
-  isProcessing = true;
-
-  let emp = (decodedText || "").trim();
-
-  if(!emp){
-    show("❌ Invalid QR");
-    isProcessing = false;
-    return;
-  }
+  isProcessing=true;
 
   scanner.stop().catch(()=>{});
 
   show("⏳ Processing...");
 
-  fetch("https://script.google.com/macros/s/1x0igHVQRvOhNFx-YqVxE6XSV7hShp7ssM5xNvH5rJk0/exec?emp="
-    + encodeURIComponent(emp))
-  .then(r => r.text())
-  .then(msg => {
+  fetch("https://script.google.com/macros/s/1x0igHVQRvOhNFx-YqVxE6XSV7hShp7ssM5xNvH5rJk0/exec?emp="+text)
+  .then(r=>r.text())
+  .then(msg=>{
 
     show(msg);
 
     setTimeout(()=>{
-      isProcessing = false;
+      isProcessing=false;
       startScanner();
     },1500);
 
@@ -143,7 +102,7 @@ function onScanSuccess(decodedText){
     show("❌ Network Error");
 
     setTimeout(()=>{
-      isProcessing = false;
+      isProcessing=false;
       startScanner();
     },2000);
 
