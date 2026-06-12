@@ -64,12 +64,13 @@ button:active{ transform:scale(0.98); }
 <h2>ATTENDANCE SCANNER</h2>
 
 <div id="card" class="warning">🟡 Ready to Scan Employee ID</div>
-
 <div id="reader"></div>
 
 <button id="scanBtn" onclick="startScanner()">📷 Scan Employee</button>
 
 <script>
+
+const SCRIPT_URL = "PASTE_YOUR_GOOGLE_SCRIPT_URL_HERE";
 
 let scanner = null;
 let processing = false;
@@ -111,30 +112,39 @@ async function onScanSuccess(decodedText){
 
     setCard("⏳ Processing ID: " + decodedText, "warning");
 
-    fetch("YOUR_SCRIPT_URL?emp=" + encodeURIComponent(decodedText))
+    const controller = new AbortController();
+    const timeout = setTimeout(()=>controller.abort(), 8000);
+
+    fetch(SCRIPT_URL + "?emp=" + encodeURIComponent(decodedText), {
+        signal: controller.signal
+    })
     .then(res => res.text())
     .then(data => {
 
+        clearTimeout(timeout);
         tone("success");
 
         setCard("✅ " + data, "success");
 
-        setTimeout(()=>{
+        setTimeout(async ()=>{
             processing = false;
+            try { await scanner.clear(); } catch(e){}
             startScanner();
-        }, 1500);
+        }, 1200);
 
     })
     .catch(err => {
 
+        clearTimeout(timeout);
         tone("error");
 
-        setCard("❌ Attendance Failed", "error");
+        setCard("❌ Attendance Failed / Server Error", "error");
 
-        setTimeout(()=>{
+        setTimeout(async ()=>{
             processing = false;
+            try { await scanner.clear(); } catch(e){}
             startScanner();
-        }, 1500);
+        }, 1200);
 
     });
 }
@@ -157,19 +167,20 @@ function startScanner(){
         }
 
         let cam = devices[0].id;
-        for(let d of devices){
-            if(d.label.toLowerCase().includes("back")){
+
+        devices.forEach(d => {
+            const label = d.label.toLowerCase();
+            if(label.includes("back") || label.includes("rear") || label.includes("environment")){
                 cam = d.id;
-                break;
             }
-        }
+        });
 
         scanner.start(
             cam,
             { fps: 10, qrbox: 240 },
             onScanSuccess
         ).catch(err=>{
-            setCard("❌ Camera Error", "error");
+            setCard("❌ Camera Start Error", "error");
             document.getElementById("scanBtn").style.display = "inline-block";
         });
 
