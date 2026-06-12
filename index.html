@@ -1,14 +1,25 @@
-Html5Qrcode.getCameras().then(devices => {
+function startScanner() {
+  Html5Qrcode.getCameras().then(devices => {
 
-  const cameraId = devices[1].id;
+    if (!devices || devices.length === 0) {
+      alert("No camera found");
+      return;
+    }
 
-  html5QrCode.start(
-    cameraId,
-    {
-      fps: 10,
-      qrbox: 250
-    },
-    onScanSuccess
-  );
+    const cameraId =
+      devices.find(d => d.label.toLowerCase().includes("back"))?.id
+      || devices[0].id;
 
-});
+    html5QrCode.start(
+      cameraId,
+      {
+        fps: 10,
+        qrbox: 250
+      },
+      onScanSuccess
+    ).catch(err => {
+      alert("Camera error: " + err);
+    });
+
+  });
+}
