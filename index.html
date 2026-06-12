@@ -1,55 +1,50 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Attendance Scanner</title>
 
-<script src="https://unpkg.com/html5-qrcode@2.3.10/minified/html5-qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.10/html5-qrcode.min.js"></script>
 
 <style>
 body{
-    font-family: Arial, sans-serif;
-    text-align:center;
-    padding:20px;
-    background:#f5f5f5;
-    transition:0.3s;
-}
-
-h2{
-    color:#333;
+  font-family: Arial;
+  text-align:center;
+  background:#f4f4f4;
+  transition:0.3s;
 }
 
 #reader{
-    width:320px;
-    margin:auto;
-    display:none;
+  width:300px;
+  margin:auto;
+  margin-top:20px;
+  display:none;
 }
 
 #result{
-    margin-top:20px;
-    font-size:22px;
-    font-weight:bold;
-    min-height:120px;
-    line-height:1.6;
-    background:white;
-    padding:15px;
-    border-radius:10px;
-    box-shadow:0 2px 6px rgba(0,0,0,0.15);
+  margin:20px auto;
+  font-size:22px;
+  font-weight:bold;
+  padding:20px;
+  border-radius:12px;
+  background:white;
+  width:80%;
+  min-height:60px;
 }
 
-#scanBtn{
-    padding:15px 30px;
-    font-size:20px;
-    cursor:pointer;
-    border:none;
-    border-radius:8px;
+button{
+  padding:12px 20px;
+  font-size:18px;
+  border:none;
+  border-radius:8px;
+  cursor:pointer;
+  margin-top:10px;
 }
 
-.success{ background:#d4edda !important; }
-.error{ background:#f8d7da !important; }
-.warning{ background:#fff3cd !important; }
-
+.success{ background:#d4edda !important; color:#155724; }
+.error{ background:#f8d7da !important; color:#721c24; }
+.warning{ background:#fff3cd !important; color:#856404; }
 </style>
 </head>
 
@@ -59,139 +54,133 @@ h2{
 
 <div id="reader"></div>
 
-<div id="result">🟢 Ready For Attendance</div>
+<div id="result">Ready to Scan</div>
 
-<br>
-
-<button id="scanBtn" onclick="startScanner()">📷 Scan Employee</button>
+<button onclick="startScanner()">Start Scanner</button>
 
 <script>
 
-let html5QrCode;
+let scanner = null;
 let isProcessing = false;
 let scanCount = {};
 
-function feedback(type){
+function flash(type){
 
-    // vibration
-    if(navigator.vibrate){
-        if(type==="success") navigator.vibrate(100);
-        if(type==="warning") navigator.vibrate([200,100,200]);
-        if(type==="error") navigator.vibrate(400);
-    }
+  if(navigator.vibrate){
+    if(type==="success") navigator.vibrate(100);
+    if(type==="warning") navigator.vibrate([200,100,200]);
+    if(type==="error") navigator.vibrate(400);
+  }
 
-    // background flash
-    if(type==="success") document.body.style.background = "#d4edda";
-    if(type==="warning") document.body.style.background = "#fff3cd";
-    if(type==="error") document.body.style.background = "#f8d7da";
+  document.body.style.background =
+    type==="success" ? "#d4edda" :
+    type==="warning" ? "#fff3cd" :
+    type==="error" ? "#f8d7da" : "#f4f4f4";
 
-    setTimeout(()=>{
-        document.body.style.background = "#f5f5f5";
-    },300);
+  setTimeout(()=>document.body.style.background="#f4f4f4",300);
 }
 
-function setResult(msg,type){
+function show(msg,type){
 
-    let box = document.getElementById("result");
-    box.innerHTML = msg;
-
-    box.className = "";
-    if(type) box.classList.add(type);
+  let box=document.getElementById("result");
+  box.innerHTML=msg;
+  box.className=type||"";
 }
 
-function startScanner(){
+async function startScanner(){
 
-    document.getElementById("reader").style.display = "block";
-    document.getElementById("scanBtn").style.display = "none";
+  try{
 
-    if(!html5QrCode){
-        html5QrCode = new Html5Qrcode("reader");
+    document.getElementById("reader").style.display="block";
+
+    if(!scanner){
+      scanner = new Html5Qrcode("reader");
     }
 
-    Html5Qrcode.getCameras().then(devices => {
+    const devices = await Html5Qrcode.getCameras();
 
-        if(!devices || devices.length===0){
-            setResult("❌ No Camera Found","error");
-            feedback("error");
-            return;
-        }
+    if(!devices || devices.length===0){
+      show("❌ No Camera Found","error");
+      flash("error");
+      return;
+    }
 
-        let cameraId = devices[0].id;
+    const cameraId = devices[0].id;
 
-        html5QrCode.start(
-            cameraId,
-            { fps:10, qrbox:250 },
-            onScanSuccess
-        );
+    // IMPORTANT: safe restart
+    try{
+      await scanner.stop();
+    }catch(e){}
 
-        setResult("Scanning...");
+    await scanner.start(
+      cameraId,
+      {
+        fps:10,
+        qrbox:250
+      },
+      onScanSuccess
+    );
 
-    }).catch(err=>{
-        setResult("❌ Camera Error","error");
-        feedback("error");
-    });
+    show("📷 Camera Active - Scan Now","success");
+
+  }catch(err){
+    show("❌ Camera Error: "+err.message,"error");
+    flash("error");
+  }
 }
 
 function onScanSuccess(decodedText){
 
-    if(isProcessing) return;
-    isProcessing = true;
+  if(isProcessing) return;
+  isProcessing = true;
 
-    let emp = String(decodedText || "").trim();
+  let emp = String(decodedText || "").trim();
 
-    if(!emp){
-        setResult("❌ Invalid QR","error");
-        feedback("error");
-        isProcessing = false;
-        return;
-    }
+  if(!emp){
+    show("❌ Invalid QR","error");
+    flash("error");
+    isProcessing=false;
+    return;
+  }
 
-    scanCount[emp] = (scanCount[emp] || 0) + 1;
+  scanCount[emp] = (scanCount[emp] || 0) + 1;
 
-    html5QrCode.stop().catch(()=>{});
+  scanner.stop().catch(()=>{});
 
-    setResult("⏳ Processing...");
+  show("⏳ Processing...");
 
-    fetch("https://script.google.com/macros/s/1x0igHVQRvOhNFx-YqVxE6XSV7hShp7ssM5xNvH5rJk0/exec?emp=" + encodeURIComponent(emp))
-    .then(res => res.text())
-    .then(msg => {
+  fetch("https://script.google.com/macros/s/1x0igHVQRvOhNFx-YqVxE6XSV7hShp7ssM5xNvH5rJk0/exec?emp="
+    + encodeURIComponent(emp))
+  .then(r=>r.text())
+  .then(msg=>{
 
-        let type = "success";
+    let type="success";
 
-        if(msg.includes("Missing") || msg.includes("Error") || msg.includes("Not Found")){
-            type = "error";
-        }
-        else if(scanCount[emp] >= 3){
-            type = "warning";
-        }
+    if(msg.includes("Missing") || msg.includes("Error")) type="error";
+    else if(scanCount[emp] >= 3) type="warning";
 
-        setResult(msg, type);
-        feedback(type);
+    show(msg,type);
+    flash(type);
 
-        setTimeout(()=>{
-            isProcessing = false;
-            startScanner();
-        },1500);
+    setTimeout(()=>{
+      isProcessing=false;
+      startScanner();
+    },1500);
 
-    })
-    .catch(err=>{
+  })
+  .catch(()=>{
 
-        setResult("❌ Network Error","error");
-        feedback("error");
+    show("❌ Network Error","error");
+    flash("error");
 
-        setTimeout(()=>{
-            isProcessing = false;
-            startScanner();
-        },2000);
+    setTimeout(()=>{
+      isProcessing=false;
+      startScanner();
+    },2000);
 
-    });
+  });
 
 }
-
-window.onload = function(){
-    document.getElementById("reader").style.display = "none";
-    setResult("🟢 Ready For Attendance");
-};
 
 </script>
 
