@@ -4,8 +4,8 @@ function onScanSuccess(decodedText) {
   fetch("https://script.google.com/macros/s/AKfycbwLyHobkWtJJvgM4ybRw7kzYKcHf_v--xxc9iMecYSVITrVMgUDxjPUcELExuD0LRmNSQ/exec?emp=" + decodedText)
     .then(res => res.text())
     .then(data => {
-      console.log("Server response:", data);
-      alert("Saved: " + decodedText);
+        alert("Server response: " + data);
+  console.log("Server response:", data);
     })
     .catch(err => {
       console.log("Fetch error:", err);
