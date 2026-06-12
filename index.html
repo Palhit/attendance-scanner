@@ -3,224 +3,181 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Attendance Scanner</title>
+<title>Attendance Scanner V3</title>
 
 <script src="https://unpkg.com/html5-qrcode"></script>
 
 <style>
 body{
-    font-family: Arial, sans-serif;
+    margin:0;
+    font-family: Arial;
+    background:#0b1b2b;
+    color:white;
     text-align:center;
-    padding:20px;
-    background:#f5f5f5;
 }
 
 h2{
-    color:#333;
+    margin:15px 0;
+    color:#5dd6ff;
 }
 
 #reader{
     width:320px;
     margin:auto;
     display:none;
-}
-
-#result{
-    margin-top:20px;
-    font-size:22px;
-    font-weight:bold;
-    min-height:120px;
-    line-height:1.6;
-    background:white;
-    padding:15px;
     border-radius:10px;
-    box-shadow:0 2px 6px rgba(0,0,0,0.15);
+    overflow:hidden;
 }
 
-#scanBtn{
-    padding:15px 30px;
-    font-size:20px;
-    cursor:pointer;
+#card{
+    margin:15px auto;
+    width:90%;
+    max-width:420px;
+    padding:18px;
+    border-radius:12px;
+    background:#13263a;
+    box-shadow:0 4px 12px rgba(0,0,0,0.4);
+    min-height:80px;
+    font-size:18px;
+}
+
+.success{ border-left:6px solid #2ecc71; }
+.error{ border-left:6px solid #e74c3c; }
+.warning{ border-left:6px solid #f39c12; }
+
+button{
+    padding:14px 26px;
+    font-size:18px;
     border:none;
     border-radius:8px;
+    background:#00bcd4;
+    color:white;
+    cursor:pointer;
+    margin-top:10px;
 }
+button:active{ transform:scale(0.98); }
 </style>
 </head>
 
 <body>
 
-<h2>Attendance Scanner</h2>
+<h2>ATTENDANCE SCANNER</h2>
+
+<div id="card" class="warning">🟡 Ready to Scan Employee ID</div>
 
 <div id="reader"></div>
 
-<div id="result">
-🟢 Ready For Attendance
-</div>
-
-<br>
-
-<button id="scanBtn" onclick="startScanner()">
-📷 Scan Employee
-</button>
+<button id="scanBtn" onclick="startScanner()">📷 Scan Employee</button>
 
 <script>
 
-let html5QrCode;
-let isProcessing = false;
+let scanner = null;
+let processing = false;
 
-function playBeep(){
+function tone(type){
     try{
-        const audio = new Audio(
-          "https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg"
-        );
-        audio.play();
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+
+        o.connect(g);
+        g.connect(ctx.destination);
+
+        if(type === "success") o.frequency.value = 700;
+        if(type === "error") o.frequency.value = 200;
+        if(type === "warn") o.frequency.value = 400;
+
+        g.gain.value = 0.1;
+        o.start();
+
+        setTimeout(()=>{ o.stop(); ctx.close(); }, 150);
     }catch(e){}
 }
 
-function onScanSuccess(decodedText){
+function setCard(msg, type){
+    const card = document.getElementById("card");
+    card.className = type;
+    card.innerHTML = msg;
+}
 
-    if(isProcessing) return;
+async function onScanSuccess(decodedText){
 
-    isProcessing = true;
+    if(processing) return;
+    processing = true;
 
-    html5QrCode.stop().catch(()=>{});
+    try{
+        await scanner.stop();
+    }catch(e){}
 
-    document.getElementById("result").innerHTML =
-      "⏳ Processing Attendance...";
+    setCard("⏳ Processing ID: " + decodedText, "warning");
 
-    fetch(
-      "https://script.google.com/macros/s/AKfycbwLyHobkWtJJvgM4ybRw7kzYKcHf_v--xxc9iMecYSVITrVMgUDxjPUcELExuD0LRmNSQ/exec?emp="
-      + encodeURIComponent(decodedText)
-    )
-
-    .then(response => response.text())
-
+    fetch("YOUR_SCRIPT_URL?emp=" + encodeURIComponent(decodedText))
+    .then(res => res.text())
     .then(data => {
 
-        playBeep();
+        tone("success");
 
-        let countdown = 3;
+        setCard("✅ " + data, "success");
 
-        document.getElementById("result").innerHTML =
-          "✅ " + data +
-          "<br><br>Next Employee Scan In : " +
-          countdown;
-
-        const timer = setInterval(() => {
-
-            countdown--;
-
-            if(countdown > 0){
-
-                document.getElementById("result").innerHTML =
-                  "✅ " + data +
-                  "<br><br>Next Employee Scan In : " +
-                  countdown;
-
-            }else{
-
-                clearInterval(timer);
-
-                document.getElementById("reader").style.display = "none";
-
-                document.getElementById("result").innerHTML =
-                  "🟢 Ready For Next Employee";
-
-                document.getElementById("scanBtn").style.display =
-                  "inline-block";
-
-                isProcessing = false;
-            }
-
-        },1000);
+        setTimeout(()=>{
+            processing = false;
+            startScanner();
+        }, 1500);
 
     })
+    .catch(err => {
 
-    .catch(error => {
+        tone("error");
 
-        console.error(error);
+        setCard("❌ Attendance Failed", "error");
 
-        document.getElementById("result").innerHTML =
-          "❌ Attendance Save Failed";
-
-        setTimeout(() => {
-
-            document.getElementById("reader").style.display = "none";
-
-            document.getElementById("result").innerHTML =
-              "🟢 Ready For Next Employee";
-
-            document.getElementById("scanBtn").style.display =
-              "inline-block";
-
-            isProcessing = false;
-
-        },3000);
+        setTimeout(()=>{
+            processing = false;
+            startScanner();
+        }, 1500);
 
     });
-
 }
 
 function startScanner(){
 
+    document.getElementById("scanBtn").style.display = "none";
     document.getElementById("reader").style.display = "block";
 
-    document.getElementById("scanBtn").style.display = "none";
-
-    if(!html5QrCode){
-        html5QrCode = new Html5Qrcode("reader");
+    if(!scanner){
+        scanner = new Html5Qrcode("reader");
     }
 
-    Html5Qrcode.getCameras()
+    Html5Qrcode.getCameras().then(devices => {
 
-    .then(devices => {
-
-        if(!devices || devices.length === 0){
-
-            document.getElementById("result").innerHTML =
-              "❌ No Camera Found";
-
-            document.getElementById("scanBtn").style.display =
-              "inline-block";
-
+        if(!devices.length){
+            setCard("❌ No Camera Found", "error");
+            document.getElementById("scanBtn").style.display = "inline-block";
             return;
         }
 
-        const cameraId =
-          devices.find(device =>
-            device.label.toLowerCase().includes("back")
-          )?.id || devices[0].id;
+        let cam = devices[0].id;
+        for(let d of devices){
+            if(d.label.toLowerCase().includes("back")){
+                cam = d.id;
+                break;
+            }
+        }
 
-        html5QrCode.start(
-            cameraId,
-            {
-                fps:10,
-                qrbox:250
-            },
+        scanner.start(
+            cam,
+            { fps: 10, qrbox: 240 },
             onScanSuccess
-        );
-
-    })
-
-    .catch(err => {
-
-        document.getElementById("result").innerHTML =
-          "❌ Camera Error : " + err;
-
-        document.getElementById("scanBtn").style.display =
-          "inline-block";
+        ).catch(err=>{
+            setCard("❌ Camera Error", "error");
+            document.getElementById("scanBtn").style.display = "inline-block";
+        });
 
     });
-
 }
 
-window.onload = function(){
-
-    document.getElementById("reader").style.display = "none";
-
-    document.getElementById("result").innerHTML =
-      "🟢 Ready For Attendance";
-
+window.onload = ()=>{
+    setCard("🟡 Ready to Scan Employee ID", "warning");
 };
 
 </script>
