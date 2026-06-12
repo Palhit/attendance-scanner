@@ -1,10 +1,19 @@
+<body>
+
+<button onclick="startScanner()">Start Scanner</button>
+<div id="reader"></div>
+
+<script src="https://unpkg.com/html5-qrcode"></script>
+
+<script>
+let html5QrCode = new Html5Qrcode("reader");  <!-- YAHAN -->
+
+function onScanSuccess(decodedText) {
+  alert(decodedText);
+}
+
 function startScanner() {
   Html5Qrcode.getCameras().then(devices => {
-
-    if (!devices || devices.length === 0) {
-      alert("No camera found");
-      return;
-    }
 
     const cameraId =
       devices.find(d => d.label.toLowerCase().includes("back"))?.id
@@ -12,14 +21,12 @@ function startScanner() {
 
     html5QrCode.start(
       cameraId,
-      {
-        fps: 10,
-        qrbox: 250
-      },
+      { fps: 10, qrbox: 250 },
       onScanSuccess
-    ).catch(err => {
-      alert("Camera error: " + err);
-    });
+    );
 
   });
 }
+</script>
+
+</body>
