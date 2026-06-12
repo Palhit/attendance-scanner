@@ -1,8 +1,7 @@
 function onScanSuccess(decodedText) {
-
   console.log("QR:", decodedText);
 
-  fetch("YOUR_SCRIPT_URL?emp=" + decodedText)
+  fetch("https://script.google.com/macros/s/AKfycbwLyHobkWtJJvgM4ybRw7kzYKcHf_v--xxc9iMecYSVITrVMgUDxjPUcELExuD0LRmNSQ/exec?emp=" + decodedText)
     .then(res => res.text())
     .then(data => {
       console.log("Server response:", data);
@@ -12,5 +11,4 @@ function onScanSuccess(decodedText) {
       console.log("Fetch error:", err);
       alert("Not saved");
     });
-
 }
