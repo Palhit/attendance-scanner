@@ -1,13 +1,100 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Attendance Scanner</title>
+
+  <script src="https://unpkg.com/html5-qrcode"></script>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      padding: 20px;
+    }
+
+    #reader {
+      width: 300px;
+      margin: auto;
+    }
+
+    button {
+      padding: 10px 20px;
+      font-size: 18px;
+      margin: 15px;
+    }
+
+    #result {
+      font-size: 20px;
+      margin-top: 15px;
+      font-weight: bold;
+    }
+  </style>
+</head>
+
+<body>
+
+<h2>Attendance Scanner</h2>
+
+<button onclick="startScanner()">Start Scanner</button>
+
+<div id="reader"></div>
+
+<div id="result"></div>
+
+<script>
+
+let html5QrCode;
+
 function onScanSuccess(decodedText) {
 
-  alert("NEW VERSION WORKING");
+  document.getElementById("result").innerHTML =
+    "Scanned: " + decodedText;
 
-  fetch("https://script.google.com/macros/s/AKfycbwLyHobkWtJJvgM4ybRw7kzYKcHf_v--xxc9iMecYSVITrVMgUDxjPUcELExuD0LRmNSQ/exec?emp=" + decodedText)
+  fetch("https://script.google.com/macros/s/AKfycbwLyHobkWtJJvgM4ybRw7kzYKcHf_v--xxc9iMecYSVITrVMgUDxjPUcELExuD0LRmNSQ/exec?emp=" + encodeURIComponent(decodedText))
     .then(res => res.text())
     .then(data => {
       alert("Server response: " + data);
     })
     .catch(err => {
-      alert("ERROR");
+      console.error(err);
+      alert("Not saved");
     });
+
 }
+
+function startScanner() {
+
+  html5QrCode = new Html5Qrcode("reader");
+
+  Html5Qrcode.getCameras().then(devices => {
+
+    if (!devices || devices.length === 0) {
+      alert("No camera found");
+      return;
+    }
+
+    const cameraId =
+      devices.find(d =>
+        d.label.toLowerCase().includes("back")
+      )?.id || devices[0].id;
+
+    html5QrCode.start(
+      cameraId,
+      {
+        fps: 10,
+        qrbox: 250
+      },
+      onScanSuccess
+    );
+
+  }).catch(err => {
+    alert("Camera Error: " + err);
+  });
+}
+
+</script>
+
+</body>
+</html>
