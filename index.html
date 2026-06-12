@@ -5,15 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Attendance Scanner</title>
 
-<!-- FIXED CDN (IMPORTANT) -->
-<script src="https://unpkg.com/html5-qrcode@2.3.10/minified/html5-qrcode.min.js"></script>
+<!-- STABLE CDN -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.10/html5-qrcode.min.js"></script>
 
 <style>
 body{
   font-family: Arial;
   text-align:center;
   background:#f4f4f4;
-  transition:0.3s;
 }
 
 #reader{
@@ -64,11 +63,23 @@ function show(msg){
   document.getElementById("result").innerHTML = msg;
 }
 
+// 🔴 safety check (IMPORTANT)
+window.onload = function(){
+  if(typeof Html5Qrcode === "undefined"){
+    alert("Library load nahi hui. Internet ya CDN issue hai.");
+  }
+}
+
 async function startScanner(){
 
   try{
 
     document.getElementById("reader").style.display = "block";
+
+    if(typeof Html5Qrcode === "undefined"){
+      show("❌ Library Not Loaded");
+      return;
+    }
 
     if(!scanner){
       scanner = new Html5Qrcode("reader");
@@ -89,7 +100,7 @@ async function startScanner(){
       onScanSuccess
     );
 
-    show("📷 Camera Started - Scan Now");
+    show("📷 Camera Started");
 
   }catch(err){
     console.log(err);
@@ -102,7 +113,7 @@ function onScanSuccess(decodedText){
   if(isProcessing) return;
   isProcessing = true;
 
-  let emp = String(decodedText || "").trim();
+  let emp = (decodedText || "").trim();
 
   if(!emp){
     show("❌ Invalid QR");
@@ -114,7 +125,7 @@ function onScanSuccess(decodedText){
 
   show("⏳ Processing...");
 
-  fetch("https://script.google.com/macros/s/1x0igHVQRvOhNFx-yqVxE6XSV7hShp7ssM5xNvH5rJk0/exec?emp="
+  fetch("https://script.google.com/macros/s/1x0igHVQRvOhNFx-YqVxE6XSV7hShp7ssM5xNvH5rJk0/exec?emp="
     + encodeURIComponent(emp))
   .then(r => r.text())
   .then(msg => {
@@ -127,7 +138,7 @@ function onScanSuccess(decodedText){
     },1500);
 
   })
-  .catch(err => {
+  .catch(()=>{
 
     show("❌ Network Error");
 
