@@ -22,6 +22,7 @@ h2{
 #reader{
     width:320px;
     margin:auto;
+    display:none;
 }
 
 #result{
@@ -35,6 +36,14 @@ h2{
     border-radius:10px;
     box-shadow:0 2px 6px rgba(0,0,0,0.15);
 }
+
+#scanBtn{
+    padding:15px 30px;
+    font-size:20px;
+    cursor:pointer;
+    border:none;
+    border-radius:8px;
+}
 </style>
 </head>
 
@@ -45,13 +54,28 @@ h2{
 <div id="reader"></div>
 
 <div id="result">
-🟢 Camera Ready<br><br>Please Scan QR Code
+🟢 Ready For Attendance
 </div>
+
+<br>
+
+<button id="scanBtn" onclick="startScanner()">
+📷 Scan Employee
+</button>
 
 <script>
 
 let html5QrCode;
 let isProcessing = false;
+
+function playBeep(){
+    try{
+        const audio = new Audio(
+          "https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg"
+        );
+        audio.play();
+    }catch(e){}
+}
 
 function onScanSuccess(decodedText){
 
@@ -59,26 +83,28 @@ function onScanSuccess(decodedText){
 
     isProcessing = true;
 
-    html5QrCode.stop();
+    html5QrCode.stop().catch(()=>{});
 
     document.getElementById("result").innerHTML =
-        "⏳ Processing Attendance...";
+      "⏳ Processing Attendance...";
 
     fetch(
-        "https://script.google.com/macros/s/AKfycbwLyHobkWtJJvgM4ybRw7kzYKcHf_v--xxc9iMecYSVITrVMgUDxjPUcELExuD0LRmNSQ/exec?emp="
-        + encodeURIComponent(decodedText)
+      "https://script.google.com/macros/s/AKfycbwLyHobkWtJJvgM4ybRw7kzYKcHf_v--xxc9iMecYSVITrVMgUDxjPUcELExuD0LRmNSQ/exec?emp="
+      + encodeURIComponent(decodedText)
     )
 
     .then(response => response.text())
 
     .then(data => {
 
+        playBeep();
+
         let countdown = 3;
 
         document.getElementById("result").innerHTML =
-            "✅ " + data +
-            "<br><br>Next Employee Scan In : " +
-            countdown;
+          "✅ " + data +
+          "<br><br>Next Employee Scan In : " +
+          countdown;
 
         const timer = setInterval(() => {
 
@@ -87,18 +113,21 @@ function onScanSuccess(decodedText){
             if(countdown > 0){
 
                 document.getElementById("result").innerHTML =
-                    "✅ " + data +
-                    "<br><br>Next Employee Scan In : " +
-                    countdown;
+                  "✅ " + data +
+                  "<br><br>Next Employee Scan In : " +
+                  countdown;
 
             }else{
 
                 clearInterval(timer);
 
-                document.getElementById("result").innerHTML =
-                    "🟢 Ready For Next Employee<br><br>Please Scan QR Code";
+                document.getElementById("reader").style.display = "none";
 
-                startScanner();
+                document.getElementById("result").innerHTML =
+                  "🟢 Ready For Next Employee";
+
+                document.getElementById("scanBtn").style.display =
+                  "inline-block";
 
                 isProcessing = false;
             }
@@ -112,14 +141,17 @@ function onScanSuccess(decodedText){
         console.error(error);
 
         document.getElementById("result").innerHTML =
-            "❌ Attendance Save Failed";
+          "❌ Attendance Save Failed";
 
         setTimeout(() => {
 
-            document.getElementById("result").innerHTML =
-                "🟢 Ready For Next Employee<br><br>Please Scan QR Code";
+            document.getElementById("reader").style.display = "none";
 
-            startScanner();
+            document.getElementById("result").innerHTML =
+              "🟢 Ready For Next Employee";
+
+            document.getElementById("scanBtn").style.display =
+              "inline-block";
 
             isProcessing = false;
 
@@ -130,6 +162,10 @@ function onScanSuccess(decodedText){
 }
 
 function startScanner(){
+
+    document.getElementById("reader").style.display = "block";
+
+    document.getElementById("scanBtn").style.display = "none";
 
     if(!html5QrCode){
         html5QrCode = new Html5Qrcode("reader");
@@ -142,15 +178,18 @@ function startScanner(){
         if(!devices || devices.length === 0){
 
             document.getElementById("result").innerHTML =
-                "❌ No Camera Found";
+              "❌ No Camera Found";
+
+            document.getElementById("scanBtn").style.display =
+              "inline-block";
 
             return;
         }
 
         const cameraId =
-            devices.find(device =>
-                device.label.toLowerCase().includes("back")
-            )?.id || devices[0].id;
+          devices.find(device =>
+            device.label.toLowerCase().includes("back")
+          )?.id || devices[0].id;
 
         html5QrCode.start(
             cameraId,
@@ -166,7 +205,10 @@ function startScanner(){
     .catch(err => {
 
         document.getElementById("result").innerHTML =
-            "❌ Camera Error : " + err;
+          "❌ Camera Error : " + err;
+
+        document.getElementById("scanBtn").style.display =
+          "inline-block";
 
     });
 
@@ -174,7 +216,10 @@ function startScanner(){
 
 window.onload = function(){
 
-    startScanner();
+    document.getElementById("reader").style.display = "none";
+
+    document.getElementById("result").innerHTML =
+      "🟢 Ready For Attendance";
 
 };
 
