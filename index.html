@@ -1,60 +1,168 @@
-function doGet(e) {
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Attendance Scanner</title>
 
-  try {
+<script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.10/minified/html5-qrcode.min.js"></script>
 
-    var emp = (e.parameter.emp || "").trim().toUpperCase();
+<style>
+body{
+  font-family: Arial;
+  text-align:center;
+  background:#f4f4f4;
+  margin:0;
+}
 
-    if (!emp) {
-      return ContentService.createTextOutput("❌ Employee Missing");
+h2{
+  margin-top:15px;
+}
+
+#reader{
+  width:320px;
+  margin:auto;
+  margin-top:20px;
+}
+
+#result{
+  margin:20px auto;
+  font-size:18px;
+  font-weight:bold;
+  padding:15px;
+  background:white;
+  width:85%;
+  border-radius:10px;
+  min-height:50px;
+}
+
+button{
+  padding:12px 18px;
+  font-size:16px;
+  border:none;
+  border-radius:8px;
+  background:#222;
+  color:white;
+  cursor:pointer;
+}
+button:active{
+  transform:scale(0.98);
+}
+</style>
+</head>
+
+<body>
+
+<h2>📷 Attendance Scanner</h2>
+
+<div id="reader"></div>
+
+<div id="result">Ready to Scan</div>
+
+<button onclick="startScanner()">Start Scanner</button>
+
+<script>
+
+let scanner = null;
+let isProcessing = false;
+
+// 🔵 SHOW RESULT
+function show(msg){
+  document.getElementById("result").innerHTML = msg;
+}
+
+// 🔵 START CAMERA
+async function startScanner(){
+
+  try{
+
+    if(typeof Html5Qrcode === "undefined"){
+      show("❌ Library Not Loaded (CDN issue)");
+      return;
     }
 
-    var ss = SpreadsheetApp.openById("1x0igHVQRvOhNFx-YqVxE6XSV7hShp7ssM5xNvH5rJk0");
+    if(!scanner){
+      scanner = new Html5Qrcode("reader");
+    }
 
-    var empSheet = ss.getSheetByName("Employees");
-    var attSheet = ss.getSheetByName("Attendance");
+    const devices = await Html5Qrcode.getCameras();
 
-    var empData = empSheet.getDataRange().getValues();
+    if(!devices || devices.length === 0){
+      show("❌ No Camera Found / Permission Denied");
+      return;
+    }
 
-    var name = "";
+    // BACK CAMERA PRIORITY
+    let cameraId = devices[0].id;
 
-    for (var i = 1; i < empData.length; i++) {
-      if (String(empData[i][0]).trim().toUpperCase() === emp) {
-        name = empData[i][1];
+    for(let d of devices){
+      if(d.label.toLowerCase().includes("back")){
+        cameraId = d.id;
         break;
       }
     }
 
-    if (!name) {
-      return ContentService.createTextOutput("❌ Employee Not Found");
-    }
+    await scanner.start(
+      cameraId,
+      {
+        fps: 10,
+        qrbox: 250
+      },
+      onScanSuccess
+    );
 
-    var now = new Date();
-    var time = Utilities.formatDate(now, Session.getScriptTimeZone(), "HH:mm:ss");
+    show("📷 Scanning...");
 
-    var attData = attSheet.getDataRange().getValues();
-    var today = Utilities.formatDate(now, Session.getScriptTimeZone(), "yyyy-MM-dd");
-
-    for (var j = attData.length - 1; j >= 1; j--) {
-
-      var rowEmp = String(attData[j][1]).trim().toUpperCase();
-      var rowDate = Utilities.formatDate(new Date(attData[j][0]), Session.getScriptTimeZone(), "yyyy-MM-dd");
-
-      if (rowEmp === emp && rowDate === today) {
-
-        if (attData[j][4] === "") {
-          attSheet.getRange(j + 1, 5).setValue(time);
-          return ContentService.createTextOutput("✅ " + name + " OUT Marked " + time);
-        }
-
-        return ContentService.createTextOutput("⚠ Already Completed Today");
-      }
-    }
-
-    attSheet.appendRow([new Date(), emp, name, time, ""]);
-
-    return ContentService.createTextOutput("✅ " + name + " IN Marked " + time);
-
-  } catch (err) {
-    return ContentService.createTextOutput("❌ ERROR: " + err.message);
+  }catch(err){
+    show("❌ Camera Error: " + err.message);
   }
 }
+
+// 🔵 QR SCAN SUCCESS (FETCH INCLUDED)
+function onScanSuccess(decodedText){
+
+  if(isProcessing) return;
+  isProcessing = true;
+
+  let emp = String(decodedText || "").trim();
+
+  if(!emp){
+    show("❌ Invalid QR Code");
+    isProcessing = false;
+    return;
+  }
+
+  scanner.stop().catch(()=>{});
+
+  show("⏳ Processing...");
+
+  // 🔥 GOOGLE SCRIPT CALL
+  fetch("https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec?emp=" + encodeURIComponent(emp))
+  .then(res => res.text())
+  .then(msg => {
+
+    show(msg);
+
+    setTimeout(()=>{
+      isProcessing = false;
+      startScanner();
+    }, 1500);
+
+  })
+  .catch(err => {
+
+    show("❌ Network Error: " + err.message);
+
+    setTimeout(()=>{
+      isProcessing = false;
+      startScanner();
+    }, 2000);
+
+  });
+
+}
+
+</script>
+
+</body>
+</html>
