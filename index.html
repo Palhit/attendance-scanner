@@ -3,48 +3,67 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Attendance Scanner Pro</title>
+<title>QR Attendance Scanner</title>
 
 <style>
-body{
+body {
+    margin: 0;
     font-family: Arial;
-    text-align:center;
-    background:#0f172a;
-    color:white;
-    margin:0;
-    padding:20px;
+    background: #0b1220;
+    color: white;
+    text-align: center;
 }
 
-h2{ margin-top:10px; }
-
-#reader{
-    width:320px;
-    margin:auto;
-    display:none;
-    border-radius:10px;
-    overflow:hidden;
+h2 {
+    margin-top: 15px;
 }
 
-#result{
-    margin-top:20px;
-    font-size:18px;
-    background:#1e293b;
-    padding:15px;
-    border-radius:10px;
-    min-height:80px;
+#reader {
+    width: 300px;
+    margin: 20px auto;
+    border: 2px solid #00ffcc;
+    border-radius: 10px;
+    overflow: hidden;
 }
 
-button{
-    padding:12px 25px;
-    font-size:18px;
-    border:none;
-    border-radius:8px;
-    cursor:pointer;
+#result {
+    margin-top: 15px;
+    font-size: 18px;
+    color: #00ffcc;
 }
 </style>
 
-<!-- ✅ FIXED CDN (PRIMARY) -->
-<script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.10/minified/html5-qrcode.min.js"></script>
+<!-- ✅ CDN FALLBACK LOADER (YAHI HEAD ME HOTA HAI) -->
+<script>
+function loadScript(src, fallback) {
+    const s = document.createElement("script");
+    s.src = src;
+
+    s.onload = () => {
+        console.log("Loaded:", src);
+        startScanner(); // library load hone ke baad scanner start
+    };
+
+    s.onerror = () => {
+        console.log("Failed:", src);
+        if (fallback) fallback();
+    };
+
+    document.head.appendChild(s);
+}
+
+// Try multiple CDNs
+loadScript(
+    "https://unpkg.com/html5-qrcode",
+    () => loadScript(
+        "https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.10/minified/html5-qrcode.min.js",
+        () => loadScript(
+            "https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.10/html5-qrcode.min.js",
+            () => alert("QR Library load failed. Internet issue.")
+        )
+    )
+);
+</script>
 
 </head>
 
@@ -53,114 +72,41 @@ button{
 <h2>📷 QR Attendance Scanner</h2>
 
 <div id="reader"></div>
-
-<div id="result">🟢 Ready to Scan</div>
-
-<br>
-
-<button id="scanBtn" onclick="startScanner()">Start Scan</button>
+<div id="result">Scan result yahan dikhega</div>
 
 <script>
+function startScanner() {
 
-let scanner;
-let isRunning = false;
-
-function beep(){
-    try{
-        let audio = new Audio("https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg");
-        audio.play();
-    }catch(e){}
-}
-
-function onScanSuccess(text){
-
-    if(isRunning) return;
-    isRunning = true;
-
-    scanner.stop().catch(()=>{});
-
-    document.getElementById("result").innerHTML =
-        "⏳ Processing: " + text;
-
-    fetch("https://script.google.com/macros/s/AKfycbwLyHobkWtJJvgM4ybRw7kzYKcHf_v--xxc9iMecYSVITrVMgUDxjPUcELExuD0LRmNSQ/exec?emp=" + encodeURIComponent(text))
-
-    .then(res => res.text())
-
-    .then(data => {
-
-        beep();
-
-        document.getElementById("result").innerHTML =
-            "✅ " + data + "<br><br>Next scan in 3 sec";
-
-        let t = 3;
-
-        let timer = setInterval(()=>{
-
-            t--;
-
-            if(t <= 0){
-                clearInterval(timer);
-
-                document.getElementById("reader").style.display = "none";
-                document.getElementById("scanBtn").style.display = "inline-block";
-                document.getElementById("result").innerHTML = "🟢 Ready to Scan";
-
-                isRunning = false;
-            }
-            else{
-                document.getElementById("result").innerHTML =
-                    "✅ " + data + "<br><br>Next scan in " + t + " sec";
-            }
-
-        },1000);
-
-    })
-
-    .catch(err=>{
-        document.getElementById("result").innerHTML =
-            "❌ Error saving attendance";
-        isRunning = false;
-    });
-}
-
-function startScanner(){
-
-    if(typeof Html5Qrcode === "undefined"){
-        document.getElementById("result").innerHTML =
-            "❌ QR Library not loaded (internet issue)";
+    if (typeof Html5Qrcode === "undefined") {
+        alert("Library load nahi hui");
         return;
     }
 
-    document.getElementById("reader").style.display = "block";
-    document.getElementById("scanBtn").style.display = "none";
+    const qr = new Html5Qrcode("reader");
 
-    scanner = new Html5Qrcode("reader");
+    qr.start(
+        { facingMode: "environment" },
+        {
+            fps: 10,
+            qrbox: 250
+        },
+        (decodedText) => {
+            document.getElementById("result").innerText = "Result: " + decodedText;
 
-    Html5Qrcode.getCameras().then(devices => {
+            // optional: stop after scan
+            qr.stop().then(() => {
+                console.log("Scanner stopped");
+            });
 
-        if(!devices || devices.length === 0){
-            document.getElementById("result").innerHTML = "❌ No Camera Found";
-            return;
+        },
+        (error) => {
+            // scanning errors ignore
         }
-
-        let cameraId = devices[0].id;
-
-        scanner.start(
-            cameraId,
-            {
-                fps:10,
-                qrbox:250
-            },
-            onScanSuccess
-        );
-
-    }).catch(err=>{
-        document.getElementById("result").innerHTML =
-            "❌ Camera Error: " + err;
+    ).catch(err => {
+        console.log("Camera error:", err);
+        alert("Camera start nahi ho raha: " + err);
     });
 }
-
 </script>
 
 </body>
