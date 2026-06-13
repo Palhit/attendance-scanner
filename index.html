@@ -137,7 +137,7 @@ function onScanSuccess(decodedText){
   show("⏳ Processing...");
 
   // 🔥 GOOGLE SCRIPT CALL
-  fetch("https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec?emp=" + encodeURIComponent(emp))
+  fetch("https://script.google.com/macros/s/1x0igHVQRvOhNFx-YqVxE6XSV7hShp7ssM5xNvH5rJk0/exec?emp=" + encodeURIComponent(emp))
   .then(res => res.text())
   .then(msg => {
 
