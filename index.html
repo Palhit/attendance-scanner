@@ -1,116 +1,60 @@
-<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Scanner Fix</title>
+function doGet(e) {
 
-</head>
+  try {
 
-<body>
+    var emp = (e.parameter.emp || "").trim().toUpperCase();
 
-<h2>Attendance Scanner</h2>
-
-<div id="reader"></div>
-
-<div id="result">Loading scanner...</div>
-
-<button onclick="startScanner()">Start Scanner</button>
-
-<!-- 🔥 IMPORTANT: SCRIPT AT BOTTOM (NOT HEAD) -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.10/html5-qrcode.min.js"></script>
-
-<script>
-
-let scanner;
-let isProcessing=false;
-
-function show(msg){
-  document.getElementById("result").innerHTML=msg;
-}
-
-// 🔴 CHECK IF LOADED
-window.onload=function(){
-
-  if(typeof Html5Qrcode === "undefined"){
-    show("❌ Library Not Loaded (CDN blocked)");
-    return;
-  }
-
-  show("Ready to Scan");
-}
-
-async function startScanner(){
-
-  try{
-
-    if(typeof Html5Qrcode === "undefined"){
-      show("❌ Html5Qrcode not loaded");
-      return;
+    if (!emp) {
+      return ContentService.createTextOutput("❌ Employee Missing");
     }
 
-    if(!scanner){
-      scanner=new Html5Qrcode("reader");
+    var ss = SpreadsheetApp.openById("1x0igHVQRvOhNFx-YqVxE6XSV7hShp7ssM5xNvH5rJk0");
+
+    var empSheet = ss.getSheetByName("Employees");
+    var attSheet = ss.getSheetByName("Attendance");
+
+    var empData = empSheet.getDataRange().getValues();
+
+    var name = "";
+
+    for (var i = 1; i < empData.length; i++) {
+      if (String(empData[i][0]).trim().toUpperCase() === emp) {
+        name = empData[i][1];
+        break;
+      }
     }
 
-    const devices=await Html5Qrcode.getCameras();
-
-    if(!devices || devices.length===0){
-      show("❌ No Camera Found");
-      return;
+    if (!name) {
+      return ContentService.createTextOutput("❌ Employee Not Found");
     }
 
-    const cameraId=devices[0].id;
+    var now = new Date();
+    var time = Utilities.formatDate(now, Session.getScriptTimeZone(), "HH:mm:ss");
 
-    await scanner.start(
-      cameraId,
-      {fps:10, qrbox:250},
-      onScanSuccess
-    );
+    var attData = attSheet.getDataRange().getValues();
+    var today = Utilities.formatDate(now, Session.getScriptTimeZone(), "yyyy-MM-dd");
 
-    show("📷 Camera Started");
+    for (var j = attData.length - 1; j >= 1; j--) {
 
-  }catch(err){
-    console.log(err);
-    show("❌ Error: "+err.message);
+      var rowEmp = String(attData[j][1]).trim().toUpperCase();
+      var rowDate = Utilities.formatDate(new Date(attData[j][0]), Session.getScriptTimeZone(), "yyyy-MM-dd");
+
+      if (rowEmp === emp && rowDate === today) {
+
+        if (attData[j][4] === "") {
+          attSheet.getRange(j + 1, 5).setValue(time);
+          return ContentService.createTextOutput("✅ " + name + " OUT Marked " + time);
+        }
+
+        return ContentService.createTextOutput("⚠ Already Completed Today");
+      }
+    }
+
+    attSheet.appendRow([new Date(), emp, name, time, ""]);
+
+    return ContentService.createTextOutput("✅ " + name + " IN Marked " + time);
+
+  } catch (err) {
+    return ContentService.createTextOutput("❌ ERROR: " + err.message);
   }
 }
-
-function onScanSuccess(text){
-
-  if(isProcessing) return;
-  isProcessing=true;
-
-  scanner.stop().catch(()=>{});
-
-  show("⏳ Processing...");
-
-  fetch("https://script.google.com/macros/s/1x0igHVQRvOhNFx-YqVxE6XSV7hShp7ssM5xNvH5rJk0/exec?emp="+text)
-  .then(r=>r.text())
-  .then(msg=>{
-
-    show(msg);
-
-    setTimeout(()=>{
-      isProcessing=false;
-      startScanner();
-    },1500);
-
-  })
-  .catch(()=>{
-
-    show("❌ Network Error");
-
-    setTimeout(()=>{
-      isProcessing=false;
-      startScanner();
-    },2000);
-
-  });
-
-}
-
-</script>
-
-</body>
-</html>
