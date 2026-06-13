@@ -3,195 +3,150 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Attendance Scanner</title>
-
-<script src="https://unpkg.com/html5-qrcode"></script>
+<title>Attendance Scanner Pro</title>
 
 <style>
 body{
-    font-family: Arial, sans-serif;
+    font-family: Arial;
     text-align:center;
+    background:#0f172a;
+    color:white;
+    margin:0;
     padding:20px;
-    background:#f5f5f5;
 }
 
-h2{
-    color:#333;
-}
+h2{ margin-top:10px; }
 
 #reader{
     width:320px;
     margin:auto;
     display:none;
+    border-radius:10px;
+    overflow:hidden;
 }
 
 #result{
     margin-top:20px;
-    font-size:22px;
-    font-weight:bold;
-    min-height:120px;
-    line-height:1.6;
-    background:white;
+    font-size:18px;
+    background:#1e293b;
     padding:15px;
     border-radius:10px;
-    box-shadow:0 2px 6px rgba(0,0,0,0.15);
+    min-height:80px;
 }
 
-#scanBtn{
-    padding:15px 30px;
-    font-size:20px;
-    cursor:pointer;
+button{
+    padding:12px 25px;
+    font-size:18px;
     border:none;
     border-radius:8px;
+    cursor:pointer;
 }
 </style>
+
+<!-- ✅ FIXED CDN (PRIMARY) -->
+<script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.10/minified/html5-qrcode.min.js"></script>
+
 </head>
 
 <body>
 
-<h2>Attendance Scanner</h2>
+<h2>📷 QR Attendance Scanner</h2>
 
 <div id="reader"></div>
 
-<div id="result">
-🟢 Ready For Attendance
-</div>
+<div id="result">🟢 Ready to Scan</div>
 
 <br>
 
-<button id="scanBtn" onclick="startScanner()">
-📷 Scan Employee
-</button>
+<button id="scanBtn" onclick="startScanner()">Start Scan</button>
 
 <script>
 
-let html5QrCode;
-let isProcessing = false;
+let scanner;
+let isRunning = false;
 
-function playBeep(){
+function beep(){
     try{
-        const audio = new Audio(
-          "https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg"
-        );
+        let audio = new Audio("https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg");
         audio.play();
     }catch(e){}
 }
 
-function onScanSuccess(decodedText){
+function onScanSuccess(text){
 
-    if(isProcessing) return;
+    if(isRunning) return;
+    isRunning = true;
 
-    isProcessing = true;
-
-    html5QrCode.stop().catch(()=>{});
+    scanner.stop().catch(()=>{});
 
     document.getElementById("result").innerHTML =
-      "⏳ Processing Attendance...";
+        "⏳ Processing: " + text;
 
-    fetch(
-      "https://script.google.com/macros/s/AKfycbwLyHobkWtJJvgM4ybRw7kzYKcHf_v--xxc9iMecYSVITrVMgUDxjPUcELExuD0LRmNSQ/exec?emp="
-      + encodeURIComponent(decodedText)
-    )
+    fetch("https://script.google.com/macros/s/AKfycbwLyHobkWtJJvgM4ybRw7kzYKcHf_v--xxc9iMecYSVITrVMgUDxjPUcELExuD0LRmNSQ/exec?emp=" + encodeURIComponent(text))
 
-    .then(response => response.text())
+    .then(res => res.text())
 
     .then(data => {
 
-        playBeep();
-
-        let countdown = 3;
+        beep();
 
         document.getElementById("result").innerHTML =
-          "✅ " + data +
-          "<br><br>Next Employee Scan In : " +
-          countdown;
+            "✅ " + data + "<br><br>Next scan in 3 sec";
 
-        const timer = setInterval(() => {
+        let t = 3;
 
-            countdown--;
+        let timer = setInterval(()=>{
 
-            if(countdown > 0){
+            t--;
 
-                document.getElementById("result").innerHTML =
-                  "✅ " + data +
-                  "<br><br>Next Employee Scan In : " +
-                  countdown;
-
-            }else{
-
+            if(t <= 0){
                 clearInterval(timer);
 
                 document.getElementById("reader").style.display = "none";
+                document.getElementById("scanBtn").style.display = "inline-block";
+                document.getElementById("result").innerHTML = "🟢 Ready to Scan";
 
+                isRunning = false;
+            }
+            else{
                 document.getElementById("result").innerHTML =
-                  "🟢 Ready For Next Employee";
-
-                document.getElementById("scanBtn").style.display =
-                  "inline-block";
-
-                isProcessing = false;
+                    "✅ " + data + "<br><br>Next scan in " + t + " sec";
             }
 
         },1000);
 
     })
 
-    .catch(error => {
-
-        console.error(error);
-
+    .catch(err=>{
         document.getElementById("result").innerHTML =
-          "❌ Attendance Save Failed";
-
-        setTimeout(() => {
-
-            document.getElementById("reader").style.display = "none";
-
-            document.getElementById("result").innerHTML =
-              "🟢 Ready For Next Employee";
-
-            document.getElementById("scanBtn").style.display =
-              "inline-block";
-
-            isProcessing = false;
-
-        },3000);
-
+            "❌ Error saving attendance";
+        isRunning = false;
     });
-
 }
 
 function startScanner(){
 
-    document.getElementById("reader").style.display = "block";
-
-    document.getElementById("scanBtn").style.display = "none";
-
-    if(!html5QrCode){
-        html5QrCode = new Html5Qrcode("reader");
+    if(typeof Html5Qrcode === "undefined"){
+        document.getElementById("result").innerHTML =
+            "❌ QR Library not loaded (internet issue)";
+        return;
     }
 
-    Html5Qrcode.getCameras()
+    document.getElementById("reader").style.display = "block";
+    document.getElementById("scanBtn").style.display = "none";
 
-    .then(devices => {
+    scanner = new Html5Qrcode("reader");
+
+    Html5Qrcode.getCameras().then(devices => {
 
         if(!devices || devices.length === 0){
-
-            document.getElementById("result").innerHTML =
-              "❌ No Camera Found";
-
-            document.getElementById("scanBtn").style.display =
-              "inline-block";
-
+            document.getElementById("result").innerHTML = "❌ No Camera Found";
             return;
         }
 
-        const cameraId =
-          devices.find(device =>
-            device.label.toLowerCase().includes("back")
-          )?.id || devices[0].id;
+        let cameraId = devices[0].id;
 
-        html5QrCode.start(
+        scanner.start(
             cameraId,
             {
                 fps:10,
@@ -200,28 +155,11 @@ function startScanner(){
             onScanSuccess
         );
 
-    })
-
-    .catch(err => {
-
+    }).catch(err=>{
         document.getElementById("result").innerHTML =
-          "❌ Camera Error : " + err;
-
-        document.getElementById("scanBtn").style.display =
-          "inline-block";
-
+            "❌ Camera Error: " + err;
     });
-
 }
-
-window.onload = function(){
-
-    document.getElementById("reader").style.display = "none";
-
-    document.getElementById("result").innerHTML =
-      "🟢 Ready For Attendance";
-
-};
 
 </script>
 
