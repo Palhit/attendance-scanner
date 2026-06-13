@@ -1,11 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
 
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 
-<title>Attendance Scanner Pro</title>
+<title>Attendance Scanner Pro V2</title>
 
 <script src="https://palhit.github.io/attendance-scanner/html5-qrcode.min.js"></script>
 
@@ -18,11 +19,11 @@ box-sizing:border-box;
 }
 
 body{
-font-family:Arial,sans-serif;
 background:#0b1220;
-color:#fff;
-min-height:100vh;
+font-family:Arial,sans-serif;
+color:white;
 padding:15px;
+min-height:100vh;
 }
 
 .container{
@@ -36,27 +37,26 @@ margin-bottom:20px;
 }
 
 .header h1{
-font-size:28px;
+font-size:30px;
 margin-bottom:8px;
 }
 
 .header p{
 opacity:.8;
-font-size:14px;
 }
 
 .card{
 background:#111827;
-border-radius:16px;
+border-radius:18px;
 padding:15px;
 margin-bottom:15px;
-box-shadow:0 0 15px rgba(0,0,0,.25);
+box-shadow:0 0 20px rgba(0,0,0,.25);
 }
 
 #reader{
 width:100%;
-overflow:hidden;
 border-radius:12px;
+overflow:hidden;
 }
 
 select{
@@ -66,16 +66,16 @@ border:none;
 border-radius:10px;
 background:#1f2937;
 color:white;
-font-size:15px;
 margin-bottom:12px;
+font-size:15px;
 }
 
 .status{
-text-align:center;
-padding:14px;
+padding:15px;
 border-radius:12px;
-font-weight:bold;
 font-size:18px;
+font-weight:bold;
+text-align:center;
 }
 
 .success{
@@ -94,27 +94,53 @@ color:#dbeafe;
 }
 
 .resultBox{
+display:none;
 margin-top:15px;
-padding:15px;
+padding:20px;
 background:#1f2937;
 border-radius:12px;
-display:none;
-}
-
-.resultBox h3{
-margin-bottom:10px;
-}
-
-.resultRow{
-margin:8px 0;
-font-size:16px;
+text-align:center;
 }
 
 .bigName{
-font-size:24px;
+font-size:28px;
 font-weight:bold;
 margin-bottom:10px;
 color:#22c55e;
+}
+
+.resultRow{
+margin:10px 0;
+font-size:18px;
+}
+
+#nextScanBox{
+display:none;
+margin-top:15px;
+text-align:center;
+}
+
+#countdown{
+font-size:18px;
+font-weight:bold;
+margin-bottom:10px;
+}
+
+#nextBtn{
+width:100%;
+padding:15px;
+font-size:18px;
+font-weight:bold;
+border:none;
+border-radius:12px;
+background:#16a34a;
+color:white;
+display:none;
+cursor:pointer;
+}
+
+#nextBtn:active{
+transform:scale(.98);
 }
 
 .logBox{
@@ -122,43 +148,26 @@ margin-top:15px;
 background:#111827;
 padding:12px;
 border-radius:12px;
-max-height:180px;
+max-height:200px;
 overflow:auto;
-font-size:13px;
 }
 
 .logTitle{
-margin-bottom:8px;
 font-weight:bold;
+margin-bottom:10px;
 }
 
 .logItem{
-margin-bottom:6px;
+padding:5px 0;
 border-bottom:1px solid #374151;
-padding-bottom:5px;
+font-size:13px;
 }
 
 .footer{
-text-align:center;
 margin-top:15px;
-font-size:12px;
+text-align:center;
 opacity:.7;
-}
-
-.scanPulse{
-animation:pulse 1s infinite;
-}
-
-@keyframes pulse{
-0%{
-transform:scale(1);
-}
-50%{
-transform:scale(1.02);
-}
-100%{
-transform:scale(1);
-}
+font-size:12px;
 }
 
 </style>
@@ -185,7 +194,7 @@ transform:scale(1);
 </div>
 
 <div id="status" class="status info">
-Initializing Scanner...
+Initializing...
 </div>
 
 <div id="resultBox" class="resultBox">
@@ -193,14 +202,26 @@ Initializing Scanner...
 <div id="employeeName" class="bigName"></div>
 
 <div class="resultRow">
-<strong>Status:</strong>
+<b>Status:</b>
 <span id="attendanceStatus"></span>
 </div>
 
 <div class="resultRow">
-<strong>Response:</strong>
+<b>Response:</b>
 <span id="serverResponse"></span>
 </div>
+
+</div>
+
+<div id="nextScanBox">
+
+<div id="countdown">
+Please Wait...
+</div>
+
+<button id="nextBtn">
+SCAN NEXT EMPLOYEE
+</button>
 
 </div>
 
@@ -215,102 +236,266 @@ Activity Log
 </div>
 
 <div class="footer">
-Attendance Scanner Pro
+Attendance Scanner Pro V2
 </div>
 
 </div>
+
 <script>
 
 const WEBAPP_URL =
 "https://script.google.com/macros/s/AKfycbxNqAsnwDWkzEGknXYzIZxTfUFVgRqDPnpQkye3MGwUfsn1A0Z3H69pxSKdiKcePga7Ug/exec";
 
 let html5QrCode;
-let lastScan = "";
-let scanLock = false;
 let currentCameraId = null;
+let scanLocked = false;
 
-const statusBox = document.getElementById("status");
-const resultBox = document.getElementById("resultBox");
-const employeeName = document.getElementById("employeeName");
-const attendanceStatus = document.getElementById("attendanceStatus");
-const serverResponse = document.getElementById("serverResponse");
-const logs = document.getElementById("logs");
-const cameraSelect = document.getElementById("cameraSelect");
+const statusBox =
+document.getElementById("status");
 
-function addLog(msg){
+const resultBox =
+document.getElementById("resultBox");
 
-const time = new Date().toLocaleTimeString();
+const employeeName =
+document.getElementById("employeeName");
+
+const attendanceStatus =
+document.getElementById("attendanceStatus");
+
+const serverResponse =
+document.getElementById("serverResponse");
+
+const logs =
+document.getElementById("logs");
+
+const cameraSelect =
+document.getElementById("cameraSelect");
+
+const nextScanBox =
+document.getElementById("nextScanBox");
+
+const countdown =
+document.getElementById("countdown");
+
+const nextBtn =
+document.getElementById("nextBtn");
+
+function addLog(text){
+
+const t =
+new Date().toLocaleTimeString();
 
 logs.innerHTML =
-`<div class="logItem">${time} - ${msg}</div>`
+`<div class="logItem">${t} - ${text}</div>`
 + logs.innerHTML;
 
 }
 
-function vibrateError(){
+function showInfo(msg){
+
+statusBox.className =
+"status info";
+
+statusBox.innerHTML = msg;
+
+}
+
+function showSuccess(msg){
+
+statusBox.className =
+"status success";
+
+statusBox.innerHTML = msg;
+
+}
+
+function showError(msg){
+
+statusBox.className =
+"status error";
+
+statusBox.innerHTML = msg;
+
+try{
 
 if(navigator.vibrate){
 navigator.vibrate([300,150,300]);
 }
 
-}
-
-function beep(freq,duration){
-
-try{
-
 const ctx =
 new(window.AudioContext||
 window.webkitAudioContext)();
 
-const osc = ctx.createOscillator();
-const gain = ctx.createGain();
+const osc =
+ctx.createOscillator();
+
+const gain =
+ctx.createGain();
 
 osc.connect(gain);
 gain.connect(ctx.destination);
 
-osc.frequency.value = freq;
-osc.type = "sine";
+osc.frequency.value = 250;
 
 osc.start();
 
 setTimeout(()=>{
 osc.stop();
-},duration);
+},400);
 
 }catch(e){}
 
 }
 
-function showSuccess(text){
+async function stopCamera(){
 
-statusBox.className =
-"status success";
+try{
 
-statusBox.innerHTML = text;
+if(html5QrCode){
 
-/* SUCCESS PAR KOI BEEP YA VIBRATION NAHI */
-
-}
-
-function showError(text){
-
-statusBox.className =
-"status error";
-
-statusBox.innerHTML = text;
-
-vibrateError();
-beep(250,400);
+await html5QrCode.stop();
 
 }
 
-function showInfo(text){
+}catch(e){}
 
-statusBox.className =
-"status info";
+}
 
-statusBox.innerHTML = text;
+async function startCamera(cameraId){
+
+try{
+
+showInfo("Starting Camera...");
+
+if(html5QrCode){
+
+try{
+await html5QrCode.clear();
+}catch(e){}
+
+}
+
+html5QrCode =
+new Html5Qrcode("reader");
+
+currentCameraId =
+cameraId;
+
+await html5QrCode.start(
+
+cameraId,
+
+{
+fps:15,
+qrbox:{width:250,height:250},
+aspectRatio:1
+},
+
+onScanSuccess,
+
+function(error){}
+
+);
+
+showInfo("Ready To Scan");
+
+addLog("Camera Started");
+
+}catch(err){
+
+showError("Camera Error");
+
+addLog(err);
+
+}
+
+}
+
+async function loadCameras(){
+
+try{
+
+const devices =
+await Html5Qrcode.getCameras();
+
+cameraSelect.innerHTML = "";
+
+devices.forEach((camera,index)=>{
+
+const option =
+document.createElement("option");
+
+option.value =
+camera.id;
+
+option.text =
+camera.label ||
+("Camera " + (index+1));
+
+cameraSelect.appendChild(option);
+
+});
+
+let backCamera =
+devices.find(d =>
+(d.label || "")
+.toLowerCase()
+.includes("back")
+);
+
+if(!backCamera){
+
+backCamera =
+devices[devices.length-1];
+
+}
+
+cameraSelect.value =
+backCamera.id;
+
+currentCameraId =
+backCamera.id;
+
+}catch(err){
+
+showError("Camera Access Failed");
+
+}
+
+}
+
+async function startCountdown(){
+
+nextScanBox.style.display = "block";
+
+nextBtn.style.display = "none";
+
+let seconds = 5;
+
+countdown.innerHTML =
+"Next Scan Available In " + seconds + " Seconds";
+
+const timer = setInterval(()=>{
+
+seconds--;
+
+if(seconds > 0){
+
+countdown.innerHTML =
+"Next Scan Available In " + seconds + " Seconds";
+
+}else{
+
+clearInterval(timer);
+
+countdown.innerHTML =
+"Ready For Next Employee";
+
+nextBtn.style.display = "block";
+
+}
+
+},1000);
 
 }
 
@@ -330,11 +515,11 @@ encodeURIComponent(empId)
 const result =
 await response.text();
 
-serverResponse.innerHTML =
-result;
-
 resultBox.style.display =
 "block";
+
+serverResponse.innerHTML =
+result;
 
 if(
 result.includes("IN Marked")
@@ -342,13 +527,13 @@ result.includes("IN Marked")
 result.includes("OUT Marked")
 ){
 
-let cleanName = result
+let name = result
 .replace("✅","")
 .replace("IN Marked","")
 .replace("OUT Marked","");
 
 employeeName.innerHTML =
-cleanName;
+name;
 
 attendanceStatus.innerHTML =
 result.includes("IN Marked")
@@ -389,11 +574,19 @@ addLog(result);
 
 }
 
+await stopCamera();
+
+await startCountdown();
+
 }catch(err){
 
 showError("Network Error");
 
 addLog(err);
+
+await stopCamera();
+
+await startCountdown();
 
 }
 
@@ -401,163 +594,83 @@ addLog(err);
 
 async function onScanSuccess(decodedText){
 
-if(scanLock){
+if(scanLocked){
 return;
 }
 
-decodedText =
-decodedText.trim().toUpperCase();
+scanLocked = true;
 
-if(decodedText === lastScan){
-return;
-}
+const empId =
+decodedText
+.trim()
+.toUpperCase();
 
-scanLock = true;
-
-lastScan = decodedText;
-
-addLog("Scanned : " + decodedText);
-
-await submitAttendance(decodedText);
-
-setTimeout(()=>{
-scanLock = false;
-},5000);
-
-}
-
-    async function startCamera(cameraId){
-
-try{
-
-if(html5QrCode){
-
-try{
-await html5QrCode.stop();
-}catch(e){}
-
-try{
-await html5QrCode.clear();
-}catch(e){}
-}
-
-html5QrCode =
-new Html5Qrcode("reader");
-
-currentCameraId = cameraId;
-
-showInfo("Starting Camera...");
-
-await html5QrCode.start(
-cameraId,
-{
-fps:15,
-qrbox:{width:250,height:250},
-aspectRatio:1
-},
-onScanSuccess,
-function(error){}
+addLog(
+"Scanned : " + empId
 );
 
-showInfo("Ready To Scan");
-
-addLog("Camera Started");
-
-}catch(err){
-
-showError("Camera Error");
-
-addLog(err);
+await submitAttendance(empId);
 
 }
 
-}
-
-async function loadCameras(){
-
-try{
-
-const devices =
-await Html5Qrcode.getCameras();
-
-cameraSelect.innerHTML = "";
-
-if(!devices.length){
-
-showError("No Camera Found");
-return;
-
-}
-
-devices.forEach((camera,index)=>{
-
-const option =
-document.createElement("option");
-
-option.value = camera.id;
-
-option.text =
-camera.label ||
-("Camera " + (index+1));
-
-cameraSelect.appendChild(option);
-
-});
-
-let backCamera =
-devices.find(d =>
-(d.label || "")
-.toLowerCase()
-.includes("back")
-);
-
-if(!backCamera){
-
-backCamera =
-devices[devices.length-1];
-
-}
-
-await startCamera(backCamera.id);
-
-cameraSelect.value =
-backCamera.id;
-
-cameraSelect.addEventListener(
-"change",
+nextBtn.addEventListener(
+"click",
 async function(){
 
+resultBox.style.display =
+"none";
+
+nextScanBox.style.display =
+"none";
+
+scanLocked = false;
+
 await startCamera(
-this.value
+currentCameraId
 );
 
 }
 );
-
-}catch(err){
-
-showError("Camera Access Failed");
-
-addLog(err);
-
-}
-
-}
 
 window.onload = async function(){
 
 if(typeof Html5Qrcode === "undefined"){
 
 showError("Library Not Loaded");
+
 return;
 
 }
 
-showInfo("Library Loaded");
+showInfo("Loading Cameras...");
 
 await loadCameras();
 
+await startCamera(currentCameraId);
+
 };
+
+cameraSelect.addEventListener(
+"change",
+async function(){
+
+currentCameraId =
+this.value;
+
+resultBox.style.display =
+"none";
+
+nextScanBox.style.display =
+"none";
+
+scanLocked = false;
+
+await startCamera(
+currentCameraId
+);
+
+}
+);
 
 </script>
 
