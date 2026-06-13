@@ -3,30 +3,45 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>QR Scanner Offline</title>
+
+<title>Attendance Scanner Test</title>
+
+<script src="https://palhit.github.io/attendance-scanner/html5-qrcode.min.js"></script>
 
 <style>
-body {
-    font-family: Arial;
-    text-align: center;
-    background: #0b1220;
-    color: white;
+body{
+    margin:0;
+    padding:20px;
+    font-family:Arial,sans-serif;
+    background:#0b1220;
+    color:white;
+    text-align:center;
 }
-#reader {
-    width: 300px;
-    margin: auto;
-    margin-top: 20px;
-    border: 2px solid #00ffcc;
+
+h2{
+    margin-bottom:20px;
 }
-#result {
-    margin-top: 20px;
-    color: #00ffcc;
+
+#reader{
+    width:320px;
+    margin:auto;
+    border:2px solid #00ff88;
+    border-radius:12px;
+    overflow:hidden;
+}
+
+#status{
+    margin-top:20px;
+    font-size:18px;
+    font-weight:bold;
+}
+
+#result{
+    margin-top:15px;
+    color:#00ff88;
+    word-break:break-word;
 }
 </style>
-
-<!-- ✅ LOCAL FILE (NO INTERNET REQUIRED) -->
-<script src="./html5-qrcode.min.js"></script>
-
 </head>
 
 <body>
@@ -34,32 +49,80 @@ body {
 <h2>QR Attendance Scanner</h2>
 
 <div id="reader"></div>
-<div id="result">Waiting for scan...</div>
+
+<div id="status">
+Loading...
+</div>
+
+<div id="result"></div>
 
 <script>
+
 window.onload = function () {
 
     if (typeof Html5Qrcode === "undefined") {
-        alert("Library load nahi hui. File path check karo.");
+        document.getElementById("status").innerHTML =
+        "❌ Library Not Loaded";
         return;
     }
 
-    const qr = new Html5Qrcode("reader");
+    document.getElementById("status").innerHTML =
+    "✅ Library Loaded";
 
-    qr.start(
-        { facingMode: "environment" },
-        { fps: 10, qrbox: 250 },
-        (text) => {
-            document.getElementById("result").innerText = text;
+    const html5QrCode = new Html5Qrcode("reader");
 
-            qr.stop();
-        },
-        (err) => {}
-    ).catch(err => {
-        alert("Camera error: " + err);
+    Html5Qrcode.getCameras()
+    .then(devices => {
+
+        if (!devices || devices.length === 0) {
+            document.getElementById("status").innerHTML =
+            "❌ No Camera Found";
+            return;
+        }
+
+        document.getElementById("status").innerHTML =
+        "📷 Camera Starting...";
+
+        let cameraId = devices[0].id;
+
+        html5QrCode.start(
+            cameraId,
+            {
+                fps: 10,
+                qrbox: 250
+            },
+
+            function(decodedText){
+
+                document.getElementById("status").innerHTML =
+                "✅ QR Detected";
+
+                document.getElementById("result").innerHTML =
+                decodedText;
+
+                console.log(decodedText);
+            },
+
+            function(error){
+            }
+
+        ).catch(err => {
+
+            document.getElementById("status").innerHTML =
+            "❌ Camera Error: " + err;
+
+        });
+
+    })
+    .catch(err => {
+
+        document.getElementById("status").innerHTML =
+        "❌ Camera Access Error: " + err;
+
     });
 
 };
+
 </script>
 
 </body>
