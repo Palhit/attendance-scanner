@@ -3,161 +3,118 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Attendance Scanner</title>
+<title>QR Scanner Pro</title>
 
 <style>
 body{
-  font-family: Arial;
-  text-align:center;
-  background:#f4f4f4;
-}
-
-h2{
-  margin-top:15px;
+    margin:0;
+    font-family: Arial;
+    background:#0b1220;
+    color:white;
+    text-align:center;
 }
 
 #reader{
-  width:320px;
-  margin:auto;
-  margin-top:20px;
+    width:320px;
+    margin:20px auto;
+    border:2px solid #00ffcc;
+    border-radius:10px;
+    padding:10px;
+    background:#111;
 }
 
-#result{
-  margin:20px auto;
-  padding:15px;
-  background:white;
-  width:85%;
-  border-radius:10px;
-  font-size:18px;
-  font-weight:bold;
-}
 button{
-  padding:12px 18px;
-  font-size:16px;
-  border:none;
-  border-radius:8px;
-  background:#222;
-  color:white;
-  cursor:pointer;
+    padding:10px 15px;
+    margin:10px;
+    border:none;
+    border-radius:6px;
+    cursor:pointer;
 }
 </style>
 </head>
 
 <body>
 
-<h2>📷 Attendance Scanner</h2>
+<h2>QR Scanner Pro (Fallback CDN)</h2>
 
 <div id="reader"></div>
 
-<div id="result">Ready to Scan</div>
+<div id="status">Loading scanner...</div>
 
-<button onclick="startScanner()">Start Scanner</button>
-
-<!-- ✅ IMPORTANT: LIBRARY LOAD HERE (BODY END BEST) -->
-<script src="https://unpkg.com/html5-qrcode"></script>
+<button onclick="startScanner()">Start Scan</button>
 
 <script>
+let scriptLoaded = false;
 
-let scanner;
-let isProcessing = false;
+// Multiple CDN fallback system
+const cdnList = [
+  "https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.10/minified/html5-qrcode.min.js",
+  "https://unpkg.com/html5-qrcode@2.3.10/minified/html5-qrcode.min.js",
+  "https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.10/html5-qrcode.min.js"
+];
 
-// 🔵 SHOW MESSAGE
-function show(msg){
-  document.getElementById("result").innerHTML = msg;
+function loadScript(index){
+    if(index >= cdnList.length){
+        document.getElementById("status").innerText =
+        "❌ All CDNs failed. Check internet or use local file.";
+        return;
+    }
+
+    let script = document.createElement("script");
+    script.src = cdnList[index];
+
+    script.onload = () => {
+        scriptLoaded = true;
+        document.getElementById("status").innerText =
+        "✅ Scanner library loaded";
+        console.log("Loaded from:", cdnList[index]);
+    };
+
+    script.onerror = () => {
+        console.log("Failed:", cdnList[index]);
+        loadScript(index + 1);
+    };
+
+    document.head.appendChild(script);
 }
 
-// 🔵 START SCANNER
-async function startScanner(){
+// start loading chain
+loadScript(0);
 
-  try{
+let html5QrCode;
 
-    // 🔴 SAFETY CHECK
-    if(typeof Html5Qrcode === "undefined"){
-      show("❌ Library Not Loaded (CDN blocked)");
-      return;
+function startScanner(){
+
+    if(!scriptLoaded || typeof Html5Qrcode === "undefined"){
+        alert("Scanner library not loaded yet. Wait...");
+        return;
     }
 
-    if(!scanner){
-      scanner = new Html5Qrcode("reader");
+    if(html5QrCode){
+        html5QrCode.stop().then(()=>html5QrCode.clear());
     }
 
-    const devices = await Html5Qrcode.getCameras();
+    html5QrCode = new Html5Qrcode("reader");
 
-    if(!devices || devices.length === 0){
-      show("❌ No Camera Found");
-      return;
-    }
+    const config = { fps: 10, qrbox: 250 };
 
-    // BACK CAMERA PRIORITY
-    let cameraId = devices[0].id;
+    html5QrCode.start(
+        { facingMode: "environment" },
+        config,
+        (decodedText) => {
+            document.getElementById("status").innerText =
+            "✅ Scanned: " + decodedText;
 
-    for(let d of devices){
-      if(d.label.toLowerCase().includes("back")){
-        cameraId = d.id;
-        break;
-      }
-    }
-
-    await scanner.start(
-      cameraId,
-      {
-        fps: 10,
-        qrbox: 250
-      },
-      onScanSuccess
-    );
-
-    show("📷 Scanning...");
-
-  }catch(err){
-    show("❌ Camera Error: " + err.message);
-  }
+            console.log("QR:", decodedText);
+        },
+        (errorMessage) => {
+            // silent errors
+        }
+    ).catch(err => {
+        document.getElementById("status").innerText =
+        "❌ Camera error: " + err;
+    });
 }
-
-// 🔵 QR SCAN SUCCESS + BACKEND CALL
-function onScanSuccess(decodedText){
-
-  if(isProcessing) return;
-  isProcessing = true;
-
-  let emp = String(decodedText || "").trim();
-
-  if(!emp){
-    show("❌ Invalid QR");
-    isProcessing = false;
-    return;
-  }
-
-  scanner.stop().catch(()=>{});
-
-  show("⏳ Processing...");
-
-  // 🔥 YOUR GOOGLE SCRIPT API
-  fetch("https://script.google.com/macros/s/1x0igHVQRvOhNFx-YqVxE6XSV7hShp7ssM5xNvH5rJk0/exec?emp=" + encodeURIComponent(emp))
-  .then(res => res.text())
-  .then(msg => {
-
-    show(msg);
-
-    setTimeout(()=>{
-      isProcessing = false;
-      startScanner();
-    },1500);
-
-  })
-  .catch(err => {
-
-    show("❌ Network Error: " + err.message);
-
-    setTimeout(()=>{
-      isProcessing = false;
-      startScanner();
-    },2000);
-
-  });
-
-}
-
 </script>
 
 </body>
