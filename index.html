@@ -1,125 +1,561 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>Attendance Scanner Test</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+
+<title>Attendance Scanner Pro</title>
 
 <script src="https://palhit.github.io/attendance-scanner/html5-qrcode.min.js"></script>
 
 <style>
-body{
-    margin:0;
-    padding:20px;
-    font-family:Arial,sans-serif;
-    background:#0b1220;
-    color:white;
-    text-align:center;
+
+*{
+margin:0;
+padding:0;
+box-sizing:border-box;
 }
 
-h2{
-    margin-bottom:20px;
+body{
+font-family:Arial,sans-serif;
+background:#0b1220;
+color:#fff;
+min-height:100vh;
+padding:15px;
+}
+
+.container{
+max-width:700px;
+margin:auto;
+}
+
+.header{
+text-align:center;
+margin-bottom:20px;
+}
+
+.header h1{
+font-size:28px;
+margin-bottom:8px;
+}
+
+.header p{
+opacity:.8;
+font-size:14px;
+}
+
+.card{
+background:#111827;
+border-radius:16px;
+padding:15px;
+margin-bottom:15px;
+box-shadow:0 0 15px rgba(0,0,0,.25);
 }
 
 #reader{
-    width:320px;
-    margin:auto;
-    border:2px solid #00ff88;
-    border-radius:12px;
-    overflow:hidden;
+width:100%;
+overflow:hidden;
+border-radius:12px;
 }
 
-#status{
-    margin-top:20px;
-    font-size:18px;
-    font-weight:bold;
+select{
+width:100%;
+padding:12px;
+border:none;
+border-radius:10px;
+background:#1f2937;
+color:white;
+font-size:15px;
+margin-bottom:12px;
 }
 
-#result{
-    margin-top:15px;
-    color:#00ff88;
-    word-break:break-word;
+.status{
+text-align:center;
+padding:14px;
+border-radius:12px;
+font-weight:bold;
+font-size:18px;
 }
+
+.success{
+background:#14532d;
+color:#bbf7d0;
+}
+
+.error{
+background:#7f1d1d;
+color:#fecaca;
+}
+
+.info{
+background:#1e3a8a;
+color:#dbeafe;
+}
+
+.resultBox{
+margin-top:15px;
+padding:15px;
+background:#1f2937;
+border-radius:12px;
+display:none;
+}
+
+.resultBox h3{
+margin-bottom:10px;
+}
+
+.resultRow{
+margin:8px 0;
+font-size:16px;
+}
+
+.bigName{
+font-size:24px;
+font-weight:bold;
+margin-bottom:10px;
+color:#22c55e;
+}
+
+.logBox{
+margin-top:15px;
+background:#111827;
+padding:12px;
+border-radius:12px;
+max-height:180px;
+overflow:auto;
+font-size:13px;
+}
+
+.logTitle{
+margin-bottom:8px;
+font-weight:bold;
+}
+
+.logItem{
+margin-bottom:6px;
+border-bottom:1px solid #374151;
+padding-bottom:5px;
+}
+
+.footer{
+text-align:center;
+margin-top:15px;
+font-size:12px;
+opacity:.7;
+}
+
+.scanPulse{
+animation:pulse 1s infinite;
+}
+
+@keyframes pulse{
+0%{
+transform:scale(1);
+}
+50%{
+transform:scale(1.02);
+}
+100%{
+transform:scale(1);
+}
+}
+
 </style>
+
 </head>
 
 <body>
 
-<h2>QR Attendance Scanner</h2>
+<div class="container">
+
+<div class="header">
+<h1>QR Attendance Scanner</h1>
+<p>Employee Attendance System</p>
+</div>
+
+<div class="card">
+
+<select id="cameraSelect">
+<option>Loading Cameras...</option>
+</select>
 
 <div id="reader"></div>
 
-<div id="status">
-Loading...
 </div>
 
-<div id="result"></div>
+<div id="status" class="status info">
+Initializing Scanner...
+</div>
 
+<div id="resultBox" class="resultBox">
+
+<div id="employeeName" class="bigName"></div>
+
+<div class="resultRow">
+<strong>Status:</strong>
+<span id="attendanceStatus"></span>
+</div>
+
+<div class="resultRow">
+<strong>Response:</strong>
+<span id="serverResponse"></span>
+</div>
+
+</div>
+
+<div class="logBox">
+
+<div class="logTitle">
+Activity Log
+</div>
+
+<div id="logs"></div>
+
+</div>
+
+<div class="footer">
+Attendance Scanner Pro
+</div>
+
+</div>
 <script>
 
-window.onload = function () {
+const WEBAPP_URL =
+"https://script.google.com/macros/s/AKfycbxNqAsnwDWkzEGknXYzIZxTfUFVgRqDPnpQkye3MGwUfsn1A0Z3H69pxSKdiKcePga7Ug/exec";
 
-    if (typeof Html5Qrcode === "undefined") {
-        document.getElementById("status").innerHTML =
-        "❌ Library Not Loaded";
-        return;
-    }
+let html5QrCode;
+let lastScan = "";
+let scanLock = false;
+let currentCameraId = null;
 
-    document.getElementById("status").innerHTML =
-    "✅ Library Loaded";
+const statusBox = document.getElementById("status");
+const resultBox = document.getElementById("resultBox");
+const employeeName = document.getElementById("employeeName");
+const attendanceStatus = document.getElementById("attendanceStatus");
+const serverResponse = document.getElementById("serverResponse");
+const logs = document.getElementById("logs");
+const cameraSelect = document.getElementById("cameraSelect");
 
-    const html5QrCode = new Html5Qrcode("reader");
+function addLog(msg){
 
-    Html5Qrcode.getCameras()
-    .then(devices => {
+const time = new Date().toLocaleTimeString();
 
-        if (!devices || devices.length === 0) {
-            document.getElementById("status").innerHTML =
-            "❌ No Camera Found";
-            return;
-        }
+logs.innerHTML =
+`<div class="logItem">${time} - ${msg}</div>`
++ logs.innerHTML;
 
-        document.getElementById("status").innerHTML =
-        "📷 Camera Starting...";
+}
 
-        let cameraId = devices[0].id;
+function vibrateError(){
 
-        html5QrCode.start(
-            cameraId,
-            {
-                fps: 10,
-                qrbox: 250
-            },
+if(navigator.vibrate){
+navigator.vibrate([300,150,300]);
+}
 
-            function(decodedText){
+}
 
-                document.getElementById("status").innerHTML =
-                "✅ QR Detected";
+function beep(freq,duration){
 
-                document.getElementById("result").innerHTML =
-                decodedText;
+try{
 
-                console.log(decodedText);
-            },
+const ctx =
+new(window.AudioContext||
+window.webkitAudioContext)();
 
-            function(error){
-            }
+const osc = ctx.createOscillator();
+const gain = ctx.createGain();
 
-        ).catch(err => {
+osc.connect(gain);
+gain.connect(ctx.destination);
 
-            document.getElementById("status").innerHTML =
-            "❌ Camera Error: " + err;
+osc.frequency.value = freq;
+osc.type = "sine";
 
-        });
+osc.start();
 
-    })
-    .catch(err => {
+setTimeout(()=>{
+osc.stop();
+},duration);
 
-        document.getElementById("status").innerHTML =
-        "❌ Camera Access Error: " + err;
+}catch(e){}
 
-    });
+}
+
+function showSuccess(text){
+
+statusBox.className =
+"status success";
+
+statusBox.innerHTML = text;
+
+/* SUCCESS PAR KOI BEEP YA VIBRATION NAHI */
+
+}
+
+function showError(text){
+
+statusBox.className =
+"status error";
+
+statusBox.innerHTML = text;
+
+vibrateError();
+beep(250,400);
+
+}
+
+function showInfo(text){
+
+statusBox.className =
+"status info";
+
+statusBox.innerHTML = text;
+
+}
+
+async function submitAttendance(empId){
+
+try{
+
+showInfo("Submitting Attendance...");
+
+const response =
+await fetch(
+WEBAPP_URL +
+"?emp=" +
+encodeURIComponent(empId)
+);
+
+const result =
+await response.text();
+
+serverResponse.innerHTML =
+result;
+
+resultBox.style.display =
+"block";
+
+if(
+result.includes("IN Marked")
+||
+result.includes("OUT Marked")
+){
+
+let cleanName = result
+.replace("✅","")
+.replace("IN Marked","")
+.replace("OUT Marked","");
+
+employeeName.innerHTML =
+cleanName;
+
+attendanceStatus.innerHTML =
+result.includes("IN Marked")
+? "IN"
+: "OUT";
+
+showSuccess(result);
+
+addLog(result);
+
+}
+else if(
+result.includes("Already")
+){
+
+employeeName.innerHTML =
+"Attendance Complete";
+
+attendanceStatus.innerHTML =
+"Duplicate";
+
+showError(result);
+
+addLog(result);
+
+}
+else{
+
+employeeName.innerHTML =
+"Invalid Employee";
+
+attendanceStatus.innerHTML =
+"Rejected";
+
+showError(result);
+
+addLog(result);
+
+}
+
+}catch(err){
+
+showError("Network Error");
+
+addLog(err);
+
+}
+
+}
+
+async function onScanSuccess(decodedText){
+
+if(scanLock){
+return;
+}
+
+decodedText =
+decodedText.trim().toUpperCase();
+
+if(decodedText === lastScan){
+return;
+}
+
+scanLock = true;
+
+lastScan = decodedText;
+
+addLog("Scanned : " + decodedText);
+
+await submitAttendance(decodedText);
+
+setTimeout(()=>{
+scanLock = false;
+},5000);
+
+}
+
+    async function startCamera(cameraId){
+
+try{
+
+if(html5QrCode){
+
+try{
+await html5QrCode.stop();
+}catch(e){}
+
+try{
+await html5QrCode.clear();
+}catch(e){}
+}
+
+html5QrCode =
+new Html5Qrcode("reader");
+
+currentCameraId = cameraId;
+
+showInfo("Starting Camera...");
+
+await html5QrCode.start(
+cameraId,
+{
+fps:15,
+qrbox:{width:250,height:250},
+aspectRatio:1
+},
+onScanSuccess,
+function(error){}
+);
+
+showInfo("Ready To Scan");
+
+addLog("Camera Started");
+
+}catch(err){
+
+showError("Camera Error");
+
+addLog(err);
+
+}
+
+}
+
+async function loadCameras(){
+
+try{
+
+const devices =
+await Html5Qrcode.getCameras();
+
+cameraSelect.innerHTML = "";
+
+if(!devices.length){
+
+showError("No Camera Found");
+return;
+
+}
+
+devices.forEach((camera,index)=>{
+
+const option =
+document.createElement("option");
+
+option.value = camera.id;
+
+option.text =
+camera.label ||
+("Camera " + (index+1));
+
+cameraSelect.appendChild(option);
+
+});
+
+let backCamera =
+devices.find(d =>
+(d.label || "")
+.toLowerCase()
+.includes("back")
+);
+
+if(!backCamera){
+
+backCamera =
+devices[devices.length-1];
+
+}
+
+await startCamera(backCamera.id);
+
+cameraSelect.value =
+backCamera.id;
+
+cameraSelect.addEventListener(
+"change",
+async function(){
+
+await startCamera(
+this.value
+);
+
+}
+);
+
+}catch(err){
+
+showError("Camera Access Failed");
+
+addLog(err);
+
+}
+
+}
+
+window.onload = async function(){
+
+if(typeof Html5Qrcode === "undefined"){
+
+showError("Library Not Loaded");
+return;
+
+}
+
+showInfo("Library Loaded");
+
+await loadCameras();
 
 };
 
